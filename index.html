@@ -607,7 +607,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, update, remove, onValue, onDisconnect, off } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, set, update, onValue, onDisconnect, off, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDvxKWshIHghAk2CQG7cbE3HrRbM_UySaQ",
@@ -624,24 +624,9 @@
         const db = getDatabase(app);
         const clientId = (crypto.randomUUID ? crypto.randomUUID() : `c-${Date.now()}-${Math.random()}`);
 
-        let currentRoomRef = null;
-        let presenceRef = null;
-        let intervalId = null;
-        let targetTimestamp = null;
-        let totalDurationSeconds = 0;
-        let hasSoundPlayed = false;
-        let currentRoomName = "";
-        let isRunning = false;
-        let isPaused = false;
-        let remainingSecondsPaused = null;
-        let wakeLock = null;
-        let soundEnabled = true;
-        let soundStyle = "soft";
-        let notifAsked = false;
-
-        const RING_RADIUS = 118;
-        const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
-
+        /* =====================================================================
+           DOM CACHE
+        ===================================================================== */
         const el = (id) => document.getElementById(id);
 
         const lobbyScreen = el('lobby-screen');
@@ -667,13 +652,125 @@
         const qrPopover = el('qr-popover');
         const qrImg = el('qr-img');
 
-        let pendingMinutes = 20;
-
         const canvas = el('favicon-canvas');
         const ctx = canvas.getContext('2d');
         const faviconLink = el('favicon');
 
-        // ---------- RING SETUP ----------
+        const RING_RADIUS = 118;
+        const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+        /* =====================================================================
+           LOCAL / EPHEMERAL UI STATE
+           (nunca escrito no Firebase — só controla a experiência deste cliente)
+        ===================================================================== */
+        let pendingMinutes = 20;
+        let soundEnabled = true;
+        let soundStyle = 'soft';
+        let notifAsked = false;
+        let wakeLock = null;
+        let hasSoundPlayed = false;
+        let lastKnownTarget = null;
+        let intervalId = null;
+        let currentRoomName = '';
+        let isFirebaseConnected = true;
+
+        /* =====================================================================
+           FIREBASE REFS DA SALA ATUAL
+           `state` (cronômetro) e `participants` (presença) são caminhos
+           irmãos e totalmente independentes — nenhuma escrita em um afeta o outro.
+        ===================================================================== */
+        let stateRef = null;
+        let participantsRef = null;
+        let myPresenceRef = null;
+        let connectedRef = null;
+
+        function roomPaths(roomName) {
+            return {
+                state: ref(db, `rooms/${roomName}/state`),
+                participants: ref(db, `rooms/${roomName}/participants`),
+                myPresence: ref(db, `rooms/${roomName}/participants/${clientId}`)
+            };
+        }
+
+        /* =====================================================================
+           MODELO DE ESTADO DO CRONÔMETRO
+           Única fonte da verdade: o último snapshot normalizado vindo do Firebase.
+           `roomState === null` significa "ainda não sincronizado" — nunca é
+           tratado como "sala ociosa" por engano.
+        ===================================================================== */
+        const DEFAULT_STATE = { status: 'idle', target: null, totalSeconds: 0, remainingSeconds: null, lastMinutes: 20 };
+        let roomState = null;
+
+        function normalizeState(raw) {
+            if (!raw) return { ...DEFAULT_STATE };
+            const status = (raw.status === 'running' || raw.status === 'paused') ? raw.status : 'idle';
+            return {
+                status,
+                target: typeof raw.target === 'number' ? raw.target : null,
+                totalSeconds: typeof raw.totalSeconds === 'number' ? raw.totalSeconds : 0,
+                remainingSeconds: typeof raw.remainingSeconds === 'number' ? raw.remainingSeconds : null,
+                lastMinutes: (typeof raw.lastMinutes === 'number' && raw.lastMinutes > 0) ? raw.lastMinutes : 20
+            };
+        }
+
+        /**
+         * Toda escrita de estado passa por aqui e usa update() — nunca set().
+         * update() só toca as chaves informadas, então uma escrita de "pausar"
+         * não apaga campos que pertencem a "iniciar" (e vice-versa), mesmo que
+         * dois clientes escrevam quase ao mesmo tempo.
+         */
+        function writeState(partial) {
+            if (!stateRef) return Promise.resolve();
+            return update(stateRef, { ...partial, updatedAt: serverTimestamp(), updatedBy: clientId });
+        }
+
+        function startTimer(minutes) {
+            const mins = Math.max(1, minutes || pendingMinutes || 20);
+            return writeState({
+                status: 'running',
+                target: Date.now() + mins * 60 * 1000,
+                totalSeconds: mins * 60,
+                remainingSeconds: null,
+                lastMinutes: mins
+            });
+        }
+
+        function resumeTimer() {
+            const remaining = Math.max(0, roomState?.remainingSeconds ?? 0);
+            return writeState({ status: 'running', target: Date.now() + remaining * 1000, remainingSeconds: null });
+        }
+
+        function pauseTimer() {
+            const remaining = Math.max(0, Math.round(((roomState?.target ?? Date.now()) - Date.now()) / 1000));
+            return writeState({ status: 'paused', target: null, remainingSeconds: remaining });
+        }
+
+        function resetTimer(minutes) {
+            const mins = Math.max(1, minutes || pendingMinutes || 20);
+            return writeState({ status: 'idle', target: null, totalSeconds: 0, remainingSeconds: null, lastMinutes: mins });
+        }
+
+        function adjustRunningOrPausedTimer(deltaMinutes) {
+            if (!roomState) return;
+            if (roomState.status === 'running') {
+                const newTotal = Math.max(60, roomState.totalSeconds + deltaMinutes * 60);
+                const newTarget = roomState.target + deltaMinutes * 60000;
+                writeState({ target: newTarget, totalSeconds: newTotal });
+            } else if (roomState.status === 'paused') {
+                const newRemaining = Math.max(0, (roomState.remainingSeconds || 0) + deltaMinutes * 60);
+                const newTotal = Math.max(60, roomState.totalSeconds + deltaMinutes * 60);
+                writeState({ remainingSeconds: newRemaining, totalSeconds: newTotal });
+            } else {
+                pendingMinutes = Math.max(1, pendingMinutes + deltaMinutes);
+                minutesLabel.innerText = `${pendingMinutes} min`;
+                updateActivePreset(pendingMinutes);
+                updateDisplay(pendingMinutes * 60);
+            }
+        }
+
+        /* =====================================================================
+           RING (SVG) SETUP
+        ===================================================================== */
         function buildRingStatics() {
             const track = el('ring-track');
             const ticksGroup = el('ring-ticks');
@@ -708,7 +805,9 @@
             ringProgress.classList.toggle('danger-state', percent >= 90);
         }
 
-        // ---------- SOUND ----------
+        /* =====================================================================
+           SOM
+        ===================================================================== */
         function tone(ctxA, freq, startTime, duration, type = 'sine', peak = 0.28) {
             const osc = ctxA.createOscillator();
             const gain = ctxA.createGain();
@@ -739,7 +838,9 @@
             } catch (e) {}
         }
 
-        // ---------- FAVICON ----------
+        /* =====================================================================
+           FAVICON DINÂMICO
+        ===================================================================== */
         function updateFaviconProgress(percent, danger) {
             ctx.clearRect(0, 0, 64, 64);
             ctx.beginPath();
@@ -757,7 +858,267 @@
             faviconLink.href = canvas.toDataURL('image/png');
         }
 
-        // ---------- LOBBY NAV ----------
+        /** Combina cálculo de progresso + pintura do anel + favicon num único lugar,
+         *  evitando a duplicação que existia entre o branch "pausado" e o tick do
+         *  cronômetro rodando. */
+        function paintProgress(secondsLeft, totalSeconds, isEnded) {
+            let percent = 0;
+            if (totalSeconds > 0) {
+                const elapsed = totalSeconds - secondsLeft;
+                percent = Math.min(100, Math.max(0, (elapsed / totalSeconds) * 100));
+            }
+            setRingProgress(percent);
+            updateFaviconProgress(percent, isEnded || percent >= 90);
+        }
+
+        function updateDisplay(seconds) {
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            const timeString = `${m}:${s}`;
+            display.innerText = timeString;
+            document.title = `(${timeString}) #${currentRoomName} — Cronoma`;
+        }
+
+        /* =====================================================================
+           NOTIFICAÇÕES
+        ===================================================================== */
+        function maybeNotify() {
+            if (!document.hidden) return;
+            if (window.Notification && Notification.permission === 'granted') {
+                try {
+                    new Notification(`Tempo esgotado — #${currentRoomName}`, {
+                        body: 'O cronômetro da sua sala chegou a zero.',
+                        silent: false
+                    });
+                } catch (e) {}
+            }
+        }
+
+        function askNotifPermission() {
+            if (notifAsked) return;
+            notifAsked = true;
+            if (window.Notification && Notification.permission === 'default') {
+                Notification.requestPermission().catch(() => {});
+            }
+        }
+
+        /* =====================================================================
+           WAKE LOCK
+        ===================================================================== */
+        async function requestWakeLock() {
+            if (wakeLock) return;
+            try {
+                if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+            } catch (e) {}
+        }
+        function releaseWakeLock() {
+            if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+        }
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && roomState?.status === 'running' && !wakeLock) requestWakeLock();
+        });
+
+        /* =====================================================================
+           CONTROLES (habilitar/desabilitar botões conforme o status)
+        ===================================================================== */
+        function setControlsState(status) {
+            if (status === 'running') {
+                startBtn.style.display = 'none';
+                pauseLiveBtn.style.display = '';
+                resetBtn.style.display = '';
+            } else if (status === 'paused') {
+                startBtn.style.display = '';
+                startBtn.innerText = 'Retomar';
+                pauseLiveBtn.style.display = 'none';
+                resetBtn.style.display = '';
+            } else {
+                startBtn.style.display = '';
+                startBtn.innerText = 'Iniciar';
+                pauseLiveBtn.style.display = 'none';
+                resetBtn.style.display = '';
+            }
+        }
+
+        const presetValues = [5, 10, 15, 25, 45, 60];
+        function updateActivePreset(mins) {
+            document.querySelectorAll('.preset-chip').forEach(chip => {
+                chip.classList.toggle('active', parseInt(chip.dataset.mins, 10) === mins);
+            });
+        }
+
+        /* =====================================================================
+           MÁQUINA DE ESTADOS — aplica o roomState normalizado à UI.
+           Substitui o antigo if/else if/else frágil por um switch explícito
+           que trata idle / running / paused sem ambiguidade.
+        ===================================================================== */
+        function applyRoomState() {
+            clearInterval(intervalId);
+
+            switch (roomState.status) {
+                case 'running': {
+                    requestWakeLock();
+                    syncDot.classList.add('online');
+                    statusText.innerText = 'Sincronizado — em andamento';
+                    setControlsState('running');
+                    startCountdownLoop();
+                    break;
+                }
+                case 'paused': {
+                    releaseWakeLock();
+                    const remaining = roomState.remainingSeconds ?? 0;
+                    pendingMinutes = roomState.lastMinutes;
+                    minutesLabel.innerText = `${pendingMinutes} min`;
+                    display.classList.remove('pulsing');
+                    updateDisplay(remaining);
+                    document.title = `#${currentRoomName} — pausado`;
+                    syncDot.classList.remove('online');
+                    statusText.innerText = 'Pausado';
+                    setControlsState('paused');
+                    paintProgress(remaining, roomState.totalSeconds, false);
+                    break;
+                }
+                default: { // idle
+                    releaseWakeLock();
+                    pendingMinutes = roomState.lastMinutes;
+                    minutesLabel.innerText = `${pendingMinutes} min`;
+                    updateActivePreset(pendingMinutes);
+                    updateDisplay(pendingMinutes * 60);
+                    syncDot.classList.remove('online');
+                    statusText.innerText = 'Pronto — aguardando início';
+                    setControlsState('idle');
+                    setRingProgress(0);
+                    updateFaviconProgress(0, false);
+                }
+            }
+        }
+
+        function startCountdownLoop() {
+            tickOnce();
+            intervalId = setInterval(tickOnce, 1000);
+        }
+
+        function tickOnce() {
+            if (!roomState || roomState.status !== 'running') { clearInterval(intervalId); return; }
+
+            const now = Date.now();
+            const difference = roomState.target - now;
+
+            if (difference <= 0) {
+                clearInterval(intervalId);
+                updateDisplay(0);
+                display.classList.remove('pulsing');
+                statusText.innerText = 'Tempo esgotado';
+                paintProgress(0, roomState.totalSeconds, true);
+                releaseWakeLock();
+                if (!hasSoundPlayed) {
+                    playAlarmSound();
+                    hasSoundPlayed = true;
+                    maybeNotify();
+                }
+                return;
+            }
+
+            const secondsLeft = Math.floor(difference / 1000);
+            updateDisplay(secondsLeft);
+            display.classList.toggle('pulsing', secondsLeft <= 10);
+            paintProgress(secondsLeft, roomState.totalSeconds, false);
+        }
+
+        /* =====================================================================
+           LISTENERS DO FIREBASE
+        ===================================================================== */
+        function handleStateSnapshot(snapshot) {
+            const next = normalizeState(snapshot.val());
+
+            // Só reseta a flag de "som já tocado" quando o alvo (target) muda de
+            // fato — ou seja, um novo início ou um ajuste de tempo — e nunca por
+            // causa de eventos de presença, já que presença nem chega mais aqui.
+            if (next.status === 'running' && next.target !== lastKnownTarget) {
+                hasSoundPlayed = false;
+            }
+            lastKnownTarget = next.target;
+
+            roomState = next;
+            applyRoomState();
+        }
+
+        function handleParticipantsSnapshot(snapshot) {
+            const val = snapshot.val() || {};
+            const count = Object.keys(val).length || 1;
+            participantsCount.innerText = count === 1 ? '1 pessoa' : `${count} pessoas`;
+        }
+
+        function handleConnectionChange(snapshot) {
+            isFirebaseConnected = snapshot.val() === true;
+
+            if (isFirebaseConnected && myPresenceRef) {
+                // Re-registra a limpeza de presença a cada reconexão — se isso não
+                // for refeito depois de uma queda de rede, o cliente continuaria
+                // "presente" no banco mesmo depois de cair.
+                onDisconnect(myPresenceRef).remove();
+                set(myPresenceRef, { joinedAt: serverTimestamp() });
+            }
+
+            if (!isFirebaseConnected) {
+                syncDot.classList.remove('online');
+                statusText.innerText = 'Reconectando…';
+            } else if (roomState) {
+                applyRoomState();
+            }
+        }
+
+        function connectToRoom(roomName) {
+            teardownRoom();
+
+            currentRoomName = roomName;
+            activeRoomNameSpan.innerText = `#${roomName}`;
+            window.location.hash = roomName;
+
+            lobbyScreen.style.display = 'none';
+            timerScreen.style.display = 'block';
+
+            // Estado desconhecido até o primeiro snapshot real chegar — nunca
+            // presumimos "ocioso" antes disso.
+            roomState = null;
+            statusText.innerText = 'Sincronizando…';
+            syncDot.classList.remove('online');
+
+            const paths = roomPaths(roomName);
+            stateRef = paths.state;
+            participantsRef = paths.participants;
+            myPresenceRef = paths.myPresence;
+            connectedRef = ref(db, '.info/connected');
+
+            onValue(connectedRef, handleConnectionChange);
+            onValue(participantsRef, handleParticipantsSnapshot);
+            onValue(stateRef, handleStateSnapshot);
+        }
+
+        function teardownRoom() {
+            if (stateRef) off(stateRef);
+            if (participantsRef) off(participantsRef);
+            if (connectedRef) off(connectedRef);
+            if (myPresenceRef) set(myPresenceRef, null).catch(() => {});
+
+            clearInterval(intervalId);
+            releaseWakeLock();
+
+            stateRef = null;
+            participantsRef = null;
+            myPresenceRef = null;
+            connectedRef = null;
+            roomState = null;
+            lastKnownTarget = null;
+            hasSoundPlayed = false;
+        }
+
+        window.addEventListener('beforeunload', () => {
+            if (myPresenceRef) set(myPresenceRef, null).catch(() => {});
+        });
+
+        /* =====================================================================
+           NAVEGAÇÃO DO LOBBY
+        ===================================================================== */
         el('btn-create-room').addEventListener('click', () => {
             initialMenu.style.display = 'none';
             roomForm.style.display = 'flex';
@@ -792,252 +1153,37 @@
 
         roomInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') formSubmitBtn.click(); });
 
-        // ---------- BUTTON STATE ----------
-        function setControlsState(state) {
-            if (state === 'running') {
-                startBtn.style.display = 'none';
-                pauseLiveBtn.style.display = '';
-                resetBtn.style.display = '';
-            } else if (state === 'paused') {
-                startBtn.style.display = '';
-                startBtn.innerText = 'Retomar';
-                pauseLiveBtn.style.display = 'none';
-                resetBtn.style.display = '';
-            } else {
-                startBtn.style.display = '';
-                startBtn.innerText = 'Iniciar';
-                pauseLiveBtn.style.display = 'none';
-                resetBtn.style.display = '';
-            }
-        }
-
-        // ---------- ROOM CONNECT ----------
-        function connectToRoom(roomName) {
-            if (currentRoomRef) off(currentRoomRef);
-            if (presenceRef) { remove(presenceRef).catch(() => {}); }
-
-            currentRoomName = roomName;
-            activeRoomNameSpan.innerText = `#${roomName}`;
-            window.location.hash = roomName;
-
-            lobbyScreen.style.display = 'none';
-            timerScreen.style.display = 'block';
-
-            currentRoomRef = ref(db, `rooms/${roomName}`);
-            presenceRef = ref(db, `rooms/${roomName}/participants/${clientId}`);
-            set(presenceRef, { joinedAt: Date.now() });
-            onDisconnect(presenceRef).remove();
-
-            onValue(ref(db, `rooms/${roomName}/participants`), (snap) => {
-                const val = snap.val() || {};
-                const count = Object.keys(val).length || 1;
-                participantsCount.innerText = count === 1 ? '1 pessoa' : `${count} pessoas`;
-            });
-
-            onValue(currentRoomRef, (snapshot) => {
-                const data = snapshot.val();
-
-                if (data && data.target) {
-                    // RODANDO
-                    targetTimestamp = data.target;
-                    totalDurationSeconds = data.totalSeconds || (pendingMinutes * 60);
-                    hasSoundPlayed = false;
-                    isRunning = true;
-                    isPaused = false;
-                    remainingSecondsPaused = null;
-
-                    syncDot.classList.add('online');
-                    statusText.innerText = "Sincronizado — em andamento";
-                    setControlsState('running');
-                    requestWakeLock();
-                    startCountdown();
-                } else if (data && data.paused) {
-                    // PAUSADO
-                    clearInterval(intervalId);
-                    isRunning = false;
-                    isPaused = true;
-                    releaseWakeLock();
-                    totalDurationSeconds = data.totalSeconds || totalDurationSeconds;
-                    remainingSecondsPaused = data.remainingSeconds != null ? data.remainingSeconds : 0;
-                    pendingMinutes = data.lastMinutes || pendingMinutes;
-                    minutesLabel.innerText = `${pendingMinutes} min`;
-                    display.classList.remove('pulsing');
-                    updateDisplay(remainingSecondsPaused);
-                    document.title = `#${currentRoomName} — pausado`;
-
-                    syncDot.classList.remove('online');
-                    statusText.innerText = "Pausado";
-                    setControlsState('paused');
-
-                    if (totalDurationSeconds > 0) {
-                        const elapsed = totalDurationSeconds - remainingSecondsPaused;
-                        const percent = Math.min(100, Math.max(0, (elapsed / totalDurationSeconds) * 100));
-                        setRingProgress(percent);
-                        updateFaviconProgress(percent, percent >= 90);
-                    }
-                } else {
-                    // OCIOSO
-                    clearInterval(intervalId);
-                    isRunning = false;
-                    isPaused = false;
-                    remainingSecondsPaused = null;
-                    releaseWakeLock();
-                    const mins = data && data.lastMinutes ? data.lastMinutes : pendingMinutes;
-                    pendingMinutes = mins;
-                    minutesLabel.innerText = `${mins} min`;
-                    updateActivePreset(mins);
-                    updateDisplay(mins * 60);
-
-                    syncDot.classList.remove('online');
-                    statusText.innerText = "Pronto — aguardando início";
-                    setControlsState('idle');
-                    setRingProgress(0);
-                    updateFaviconProgress(0, false);
-                }
-            });
-        }
-
-        function startCountdown() {
-            clearInterval(intervalId);
-            intervalId = setInterval(() => {
-                const now = Date.now();
-                const difference = targetTimestamp - now;
-
-                if (difference <= 0) {
-                    clearInterval(intervalId);
-                    updateDisplay(0);
-                    display.classList.remove('pulsing');
-                    statusText.innerText = "Tempo esgotado";
-                    setRingProgress(100);
-                    updateFaviconProgress(100, true);
-                    releaseWakeLock();
-
-                    if (!hasSoundPlayed) {
-                        playAlarmSound();
-                        hasSoundPlayed = true;
-                        maybeNotify();
-                    }
-                    return;
-                }
-
-                const secondsLeft = Math.floor(difference / 1000);
-                updateDisplay(secondsLeft);
-                display.classList.toggle('pulsing', secondsLeft <= 10);
-
-                if (totalDurationSeconds > 0) {
-                    const elapsed = totalDurationSeconds - secondsLeft;
-                    const percent = Math.min(100, Math.max(0, (elapsed / totalDurationSeconds) * 100));
-                    setRingProgress(percent);
-                    updateFaviconProgress(percent, percent >= 90);
-                }
-            }, 1000);
-        }
-
-        function updateDisplay(seconds) {
-            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-            const s = (seconds % 60).toString().padStart(2, '0');
-            const timeString = `${m}:${s}`;
-            display.innerText = timeString;
-            document.title = `(${timeString}) #${currentRoomName} — Cronoma`;
-        }
-
-        // ---------- NOTIFICATIONS ----------
-        function maybeNotify() {
-            if (!document.hidden) return;
-            if (Notification && Notification.permission === 'granted') {
-                try {
-                    new Notification(`Tempo esgotado — #${currentRoomName}`, {
-                        body: 'O cronômetro da sua sala chegou a zero.',
-                        silent: false
-                    });
-                } catch (e) {}
-            }
-        }
-
-        function askNotifPermission() {
-            if (notifAsked) return;
-            notifAsked = true;
-            if (window.Notification && Notification.permission === 'default') {
-                Notification.requestPermission().catch(() => {});
-            }
-        }
-
-        // ---------- WAKE LOCK ----------
-        async function requestWakeLock() {
-            try {
-                if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
-            } catch (e) {}
-        }
-        function releaseWakeLock() {
-            if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
-        }
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && isRunning && !wakeLock) requestWakeLock();
-        });
-
-        // ---------- PRESETS & ADJUST ----------
-        const presetValues = [5, 10, 15, 25, 45, 60];
-        function updateActivePreset(mins) {
-            document.querySelectorAll('.preset-chip').forEach(chip => {
-                chip.classList.toggle('active', parseInt(chip.dataset.mins, 10) === mins);
-            });
-        }
-
+        /* =====================================================================
+           PRESETS & AJUSTE DE MINUTOS
+        ===================================================================== */
         document.querySelectorAll('.preset-chip').forEach(chip => {
             chip.addEventListener('click', () => {
                 const mins = parseInt(chip.dataset.mins, 10);
                 pendingMinutes = mins;
                 minutesLabel.innerText = `${mins} min`;
                 updateActivePreset(mins);
-                if (!isRunning) updateDisplay(mins * 60);
+                if (!roomState || roomState.status === 'idle') updateDisplay(mins * 60);
             });
         });
 
-        function adjustTime(deltaMinutes) {
-            if (isRunning) {
-                const newTotal = Math.max(60, totalDurationSeconds + deltaMinutes * 60);
-                const newTarget = targetTimestamp + deltaMinutes * 60000;
-                update(currentRoomRef, { target: newTarget, totalSeconds: newTotal });
-            } else if (isPaused) {
-                const newRemaining = Math.max(0, (remainingSecondsPaused || 0) + deltaMinutes * 60);
-                const newTotal = Math.max(60, totalDurationSeconds + deltaMinutes * 60);
-                update(currentRoomRef, { remainingSeconds: newRemaining, totalSeconds: newTotal });
-            } else {
-                pendingMinutes = Math.max(1, pendingMinutes + deltaMinutes);
-                minutesLabel.innerText = `${pendingMinutes} min`;
-                updateActivePreset(pendingMinutes);
-                updateDisplay(pendingMinutes * 60);
-            }
-        }
         document.querySelectorAll('[data-adjust]').forEach(btn => {
-            btn.addEventListener('click', () => adjustTime(parseInt(btn.dataset.adjust, 10)));
+            btn.addEventListener('click', () => adjustRunningOrPausedTimer(parseInt(btn.dataset.adjust, 10)));
         });
 
-        // ---------- MAIN CONTROLS ----------
+        /* =====================================================================
+           CONTROLES PRINCIPAIS
+        ===================================================================== */
         startBtn.addEventListener('click', () => {
             askNotifPermission();
-            const mins = pendingMinutes || 20;
-            if (isPaused && remainingSecondsPaused != null) {
-                // Retomar de onde parou
-                const newTarget = Date.now() + remainingSecondsPaused * 1000;
-                set(currentRoomRef, { target: newTarget, totalSeconds: totalDurationSeconds, lastMinutes: mins, paused: false, remainingSeconds: null });
+            if (roomState && roomState.status === 'paused') {
+                resumeTimer();
             } else {
-                // Início novo
-                const durationMs = mins * 60 * 1000;
-                const newTarget = Date.now() + durationMs;
-                set(currentRoomRef, { target: newTarget, totalSeconds: mins * 60, lastMinutes: mins, paused: false, remainingSeconds: null });
+                startTimer(pendingMinutes);
             }
         });
 
-        pauseLiveBtn.addEventListener('click', () => {
-            const remaining = Math.max(0, Math.round((targetTimestamp - Date.now()) / 1000));
-            set(currentRoomRef, { target: null, totalSeconds: totalDurationSeconds, lastMinutes: pendingMinutes, paused: true, remainingSeconds: remaining });
-        });
-
-        resetBtn.addEventListener('click', () => {
-            const mins = pendingMinutes || 20;
-            set(currentRoomRef, { target: null, totalSeconds: 0, lastMinutes: mins, paused: false, remainingSeconds: null });
-        });
+        pauseLiveBtn.addEventListener('click', () => pauseTimer());
+        resetBtn.addEventListener('click', () => resetTimer(pendingMinutes));
 
         el('share-btn').addEventListener('click', () => {
             const fullUrl = window.location.href;
@@ -1056,10 +1202,7 @@
         });
 
         el('exit-room-btn').addEventListener('click', () => {
-            if (currentRoomRef) off(currentRoomRef);
-            if (presenceRef) remove(presenceRef).catch(() => {});
-            clearInterval(intervalId);
-            releaseWakeLock();
+            teardownRoom();
             window.location.hash = "";
             timerScreen.style.display = 'none';
             roomForm.style.display = 'none';
@@ -1068,7 +1211,9 @@
             document.title = "Cronoma — Timer de Equipe Sincronizado em Tempo Real";
         });
 
-        // ---------- OPTIONS: theme / sound / focus ----------
+        /* =====================================================================
+           OPÇÕES: TEMA / SOM / MODO FOCO
+        ===================================================================== */
         el('theme-toggle').addEventListener('click', () => {
             const htmlEl = document.documentElement;
             const next = htmlEl.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
@@ -1091,19 +1236,43 @@
         }
         el('focus-toggle').addEventListener('click', () => toggleFocusMode());
 
-        // ---------- KEYBOARD SHORTCUTS ----------
+        /* =====================================================================
+           ATALHOS DE TECLADO
+        ===================================================================== */
         document.addEventListener('keydown', (e) => {
-            if (timerScreen.style.display !== 'block') return;
-            const tag = (e.target.tagName || '').toLowerCase();
-            if (tag === 'input' || tag === 'select') return;
+    if (timerScreen.style.display !== 'block') return;
 
-            if (e.code === 'Space') { e.preventDefault(); isRunning ? pauseLiveBtn.click() : startBtn.click(); }
-            else if (e.key.toLowerCase() === 'r') { resetBtn.click(); }
-            else if (e.key.toLowerCase() === 'f') { toggleFocusMode(); }
-            else if (e.key === 'Escape') { toggleFocusMode(false); qrPopover.style.display = 'none'; }
-        });
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'select') return;
 
-        // ---------- INITIAL HASH ----------
+    // Ignora qualquer atalho do navegador (Ctrl, Cmd, Shift, Alt)
+    const hasModifier =
+        e.ctrlKey ||
+        e.metaKey ||
+        e.shiftKey ||
+        e.altKey;
+
+    if (hasModifier) return;
+
+    if (e.code === 'Space') {
+        e.preventDefault();
+        isRunning ? pauseLiveBtn.click() : startBtn.click();
+    }
+    else if (e.key.toLowerCase() === 'r') {
+        resetBtn.click();
+    }
+    else if (e.key.toLowerCase() === 'f') {
+        toggleFocusMode();
+    }
+    else if (e.key === 'Escape') {
+        toggleFocusMode(false);
+        qrPopover.style.display = 'none';
+    }
+});
+
+        /* =====================================================================
+           ROTEAMENTO POR HASH
+        ===================================================================== */
         function checkInitialHash() {
             let hash = window.location.hash.replace('#', '').trim().toLowerCase();
             hash = hash.replace(/[^a-z0-9_-]/g, '');
