@@ -1,112 +1,199 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Timer de Equipe - Salas Sincronizadas</title>
-    <meta name="description" content="Cronômetro online gratuito com salas privadas e sincronizadas em tempo real para equipes.">
-    
+    <title>Cronoma — Timer de Equipe Sincronizado em Tempo Real</title>
+    <meta name="description" content="Cronômetro online gratuito com salas privadas sincronizadas em tempo real. Presença ao vivo, ajuste de tempo instantâneo, modo foco e notificações — feito para reuniões, times ágeis e sessões de estudo.">
+    <meta name="theme-color" content="#0b0e14">
+
     <link id="favicon" rel="icon" type="image/png" href="">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+
     <style>
         :root {
-            --bg-color: #09090b;
-            --card-bg: #18181b;
-            --border-color: #27272a;
-            --primary-color: #10b981;
-            --primary-hover: #059669;
-            --danger-color: #ef4444;
-            --danger-hover: #dc2626;
-            --accent-color: #3b82f6;
-            --text-main: #f4f4f5;
-            --text-muted: #a1a1aa;
+            --bg: #0b0e14;
+            --bg-noise: #0d1119;
+            --card: #141922;
+            --card-elevated: #1a212d;
+            --border: #242c3a;
+            --border-soft: #1b222e;
+            --accent: #e8a33d;
+            --accent-hover: #f4b558;
+            --accent-soft: rgba(232, 163, 61, 0.14);
+            --sync: #4fd1c5;
+            --sync-soft: rgba(79, 209, 197, 0.14);
+            --danger: #ef4565;
+            --danger-hover: #d63a58;
+            --danger-soft: rgba(239, 69, 101, 0.14);
+            --text: #eaeef3;
+            --text-muted: #8b93a3;
+            --text-faint: #545d6c;
+            --ring-track: #212836;
+            --shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.65);
+        }
+
+        html[data-theme="light"] {
+            --bg: #f5f3ee;
+            --bg-noise: #efece4;
+            --card: #ffffff;
+            --card-elevated: #fbfaf7;
+            --border: #e6e2d8;
+            --border-soft: #ece8de;
+            --accent: #c17d1f;
+            --accent-hover: #a8690f;
+            --accent-soft: rgba(193, 125, 31, 0.1);
+            --sync: #1a8f83;
+            --sync-soft: rgba(26, 143, 131, 0.1);
+            --danger: #d1355a;
+            --danger-hover: #b52649;
+            --danger-soft: rgba(209, 53, 90, 0.1);
+            --text: #22242a;
+            --text-muted: #6b6f7a;
+            --text-faint: #9a9da6;
+            --ring-track: #e9e5da;
+            --shadow: 0 24px 60px -24px rgba(30, 25, 15, 0.18);
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
+            background:
+                radial-gradient(circle at 15% 0%, var(--accent-soft), transparent 40%),
+                radial-gradient(circle at 85% 100%, var(--sync-soft), transparent 45%),
+                var(--bg);
+            color: var(--text);
             display: flex;
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
-            padding: 20px;
+            padding: 24px 16px 48px;
+            transition: background-color .3s ease, color .3s ease;
         }
 
-        .ad-banner-wrapper {
+        .topbar {
             width: 100%;
-            max-width: 728px;
-            min-height: 90px;
-            background: #121215;
-            border: 1px dashed var(--border-color);
-            border-radius: 12px;
-            margin: 15px 0;
+            max-width: 560px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            font-size: 1rem;
+            letter-spacing: -0.01em;
+            color: var(--text);
+        }
+
+        .brand .dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 0 4px var(--accent-soft);
+        }
+
+        .icon-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--card);
+            color: var(--text-muted);
             display: flex;
             align-items: center;
             justify-content: center;
-            color: var(--text-muted);
-            font-size: 0.8rem;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all .15s ease;
+        }
+        .icon-btn:hover { color: var(--text); border-color: var(--accent); }
+
+        .topbar-actions { display: flex; gap: 8px; }
+
+        .ad-banner-wrapper {
+            width: 100%;
+            max-width: 560px;
+            min-height: 90px;
+            background: var(--card);
+            border: 1px dashed var(--border);
+            border-radius: 12px;
+            margin: 8px 0 18px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-faint);
+            font-size: 0.75rem;
             text-align: center;
-            overflow: hidden;
         }
 
         .container {
-            background-color: var(--card-bg);
-            border: 1px solid var(--border-color);
-            padding: 35px 40px;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7);
+            background: linear-gradient(180deg, var(--card-elevated), var(--card));
+            border: 1px solid var(--border);
+            padding: 34px 32px 28px;
+            border-radius: 24px;
+            box-shadow: var(--shadow);
             text-align: center;
-            max-width: 480px;
+            max-width: 460px;
             width: 100%;
             position: relative;
             overflow: hidden;
         }
 
-        /* TELA 1: LOBBY INICIAL */
+        /* ---------- LOBBY ---------- */
+        #lobby-screen .eyebrow {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.72rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--sync);
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
         #lobby-screen h1 {
-            font-size: 1.5rem;
-            margin-bottom: 8px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.65rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 10px;
         }
 
         #lobby-screen p {
             color: var(--text-muted);
-            font-size: 0.9rem;
-            margin-bottom: 24px;
+            font-size: 0.92rem;
+            margin-bottom: 26px;
+            line-height: 1.5;
         }
 
-        .lobby-buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
+        .lobby-buttons { display: flex; flex-direction: column; gap: 12px; }
 
         .btn-lobby-secondary {
-            background-color: #27272a;
-            color: var(--text-main);
-            border: 1px solid var(--border-color);
+            background-color: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
         }
+        .btn-lobby-secondary:hover { background-color: var(--border-soft); border-color: var(--accent); }
 
-        .btn-lobby-secondary:hover {
-            background-color: #3f3f46;
-        }
-
-        /* Formulário de Input no Lobby */
         .room-form {
             display: none;
             flex-direction: column;
             gap: 12px;
-            margin-top: 15px;
+            margin-top: 6px;
             text-align: left;
         }
 
         .room-form label {
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             color: var(--text-muted);
             font-weight: 500;
         }
@@ -114,23 +201,25 @@
         .room-input-group {
             display: flex;
             align-items: center;
-            background: var(--bg-color);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 8px 14px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px 14px;
         }
+        .room-input-group:focus-within { border-color: var(--accent); }
 
         .room-input-group span {
-            color: var(--primary-color);
+            color: var(--accent);
             font-weight: 700;
-            font-size: 1.1rem;
+            font-size: 1.05rem;
             margin-right: 6px;
+            font-family: 'Space Grotesk', sans-serif;
         }
 
         .room-input-group input {
             background: transparent;
             border: none;
-            color: var(--text-main);
+            color: var(--text);
             font-size: 1rem;
             font-weight: 600;
             outline: none;
@@ -139,204 +228,386 @@
 
         .back-link {
             display: inline-block;
-            margin-top: 15px;
-            color: var(--text-muted);
-            font-size: 0.8rem;
+            margin-top: 6px;
+            color: var(--text-faint);
+            font-size: 0.78rem;
             text-decoration: underline;
             cursor: pointer;
         }
+        .back-link:hover { color: var(--text-muted); }
 
-        /* TELA 2: CRONÔMETRO (Oculto Inicialmente) */
-        #timer-screen {
-            display: none;
-        }
+        /* ---------- TIMER SCREEN ---------- */
+        #timer-screen { display: none; }
 
-        .progress-bar-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-            background: var(--border-color);
-        }
+        .header { margin-bottom: 6px; }
 
-        .progress-bar {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
-            transition: width 0.3s ease;
-        }
-
-        .header h1 {
-            font-size: 1.2rem;
-            font-weight: 600;
-            letter-spacing: -0.02em;
+        .header-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
         }
 
         .room-badge {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            background: var(--bg-color);
-            padding: 4px 12px;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            margin-top: 8px;
-            font-size: 0.85rem;
+            gap: 7px;
+            background: var(--bg);
+            padding: 5px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            font-size: 0.82rem;
             font-weight: 600;
-            color: var(--primary-color);
+            color: var(--accent);
+            font-family: 'Space Grotesk', sans-serif;
         }
 
-        .status-badge {
+        .sync-pulse {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--text-faint);
+            position: relative;
+        }
+        .sync-pulse.online { background: var(--sync); }
+        .sync-pulse.online::after {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            border: 1.5px solid var(--sync);
+            animation: pulse-ring 2s ease-out infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.7); opacity: 0.9; }
+            100% { transform: scale(2.1); opacity: 0; }
+        }
+
+        .participants-badge {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 4px 12px;
-            background-color: #27272a;
+            padding: 5px 11px;
+            background: var(--sync-soft);
             border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--sync);
+        }
+
+        .status-text {
+            display: block;
+            margin-top: 9px;
             font-size: 0.8rem;
+            color: var(--text-faint);
             font-weight: 500;
-            color: var(--text-muted);
-            margin-top: 10px;
         }
 
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: #71717a;
+        /* ---------- RING ---------- */
+        .ring-wrap {
+            position: relative;
+            width: 260px;
+            height: 260px;
+            margin: 22px auto 6px;
         }
-
-        .status-dot.active {
-            background-color: var(--primary-color);
-            box-shadow: 0 0 10px var(--primary-color);
+        .ring-wrap svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+        .ring-track { fill: none; stroke: var(--ring-track); stroke-width: 8; }
+        .ring-progress {
+            fill: none;
+            stroke: var(--accent);
+            stroke-width: 8;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.35s linear, stroke 0.4s ease;
         }
+        .ring-progress.danger-state { stroke: var(--danger); }
+        .tick { stroke: var(--border); stroke-width: 2; }
+        .tick.major { stroke: var(--text-faint); stroke-width: 2.5; }
 
-        .status-dot.ended {
-            background-color: var(--danger-color);
+        .ring-center {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
 
         .timer-display {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 5.5rem;
+            font-size: 3.05rem;
             font-weight: 700;
-            letter-spacing: -2px;
-            margin: 15px 0 20px;
-            text-shadow: 0 0 20px rgba(255, 255, 255, 0.05);
+            letter-spacing: -1px;
+            line-height: 1;
+        }
+        .timer-display.pulsing { animation: pulse-danger 1s ease-in-out infinite; color: var(--danger); }
+        @keyframes pulse-danger {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.06); }
         }
 
-        .input-group {
-            display: inline-flex;
+        .timer-sublabel {
+            margin-top: 8px;
+            font-size: 0.72rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-faint);
+            font-weight: 600;
+        }
+
+        /* ---------- ADJUST + PRESETS ---------- */
+        .presets-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin: 18px 0 14px;
+        }
+        .preset-chip {
+            padding: 7px 13px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .15s ease;
+        }
+        .preset-chip:hover { border-color: var(--accent); color: var(--text); }
+        .preset-chip.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+        .adjust-row {
+            display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--bg-color);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 4px 12px;
-            margin-bottom: 24px;
+            gap: 8px;
+            margin-bottom: 18px;
         }
+        .adjust-btn {
+            width: 42px;
+            height: 38px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all .15s ease;
+        }
+        .adjust-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .adjust-btn:active { transform: scale(0.94); }
 
-        .input-group input {
-            background: transparent;
-            border: none;
-            color: #fff;
-            padding: 8px 4px;
-            font-size: 1.25rem;
-            font-weight: 600;
-            width: 60px;
+        .minutes-static {
+            min-width: 74px;
             text-align: center;
-            outline: none;
-        }
-
-        .input-group input::-webkit-outer-spin-button,
-        .input-group input::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-
-        .input-group span {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.85rem;
             color: var(--text-muted);
-            font-size: 0.95rem;
+            font-weight: 600;
         }
 
         .controls-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-bottom: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 10px;
         }
 
         .btn {
-            background-color: var(--primary-color);
-            color: #000;
+            flex: 1 1 0;
+            min-width: 90px;
+            background-color: var(--accent);
+            color: #0b0e14;
             border: none;
-            padding: 14px 20px;
-            font-size: 0.95rem;
-            font-weight: 600;
-            border-radius: 10px;
+            padding: 14px 18px;
+            font-size: 0.92rem;
+            font-weight: 700;
+            font-family: 'Space Grotesk', sans-serif;
+            border-radius: 12px;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.18s ease;
         }
-
-        .btn:hover { background-color: var(--primary-hover); }
+        .btn:hover { background-color: var(--accent-hover); transform: translateY(-1px); }
+        .btn:active { transform: translateY(0); }
 
         .btn-pause {
-            background-color: #27272a;
-            color: var(--text-main);
-            border: 1px solid var(--border-color);
+            background-color: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
         }
+        .btn-pause:hover { background-color: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
 
-        .btn-pause:hover {
-            background-color: var(--danger-color);
-            color: #fff;
-            border-color: var(--danger-color);
+        .btn-pause-live {
+            background-color: var(--bg);
+            color: var(--accent);
+            border: 1px solid var(--accent);
+        }
+        .btn-pause-live:hover { background-color: var(--accent-soft); color: var(--accent-hover); }
+
+        .secondary-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
         }
 
         .btn-secondary-full {
-            width: 100%;
+            flex: 1;
             background-color: transparent;
             color: var(--text-muted);
-            border: 1px dashed var(--border-color);
+            border: 1px dashed var(--border);
             padding: 10px;
-            font-weight: 500;
+            font-weight: 600;
+            font-size: 0.8rem;
             border-radius: 10px;
             cursor: pointer;
-            margin-top: 8px;
-            font-size: 0.85rem;
+        }
+        .btn-secondary-full:hover { background-color: var(--border-soft); color: var(--text); }
+
+        .options-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-soft);
+            gap: 10px;
         }
 
-        .btn-secondary-full:hover {
-            background-color: #27272a;
-            color: var(--text-main);
+        .sound-select {
+            flex: 1;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-size: 0.78rem;
+            font-weight: 600;
+            padding: 8px 10px;
+            border-radius: 10px;
+            outline: none;
         }
 
+        .mute-toggle {
+            width: 38px;
+            height: 38px;
+            flex-shrink: 0;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .mute-toggle.muted { color: var(--danger); border-color: var(--danger-soft); }
+
+        .kbd-hint {
+            margin-top: 16px;
+            font-size: 0.7rem;
+            color: var(--text-faint);
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .kbd-hint kbd {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            padding: 1px 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.68rem;
+        }
+
+        /* ---------- QR ---------- */
+        .qr-popover {
+            display: none;
+            margin-top: 14px;
+            padding: 16px;
+            background: #fff;
+            border-radius: 14px;
+            align-items: center;
+            justify-content: center;
+        }
+        .qr-popover img { width: 150px; height: 150px; display: block; }
+
+        /* ---------- FOCUS MODE ---------- */
+        body.focus-mode .topbar,
+        body.focus-mode .ad-banner-wrapper,
+        body.focus-mode .content-section,
+        body.focus-mode .presets-row,
+        body.focus-mode .secondary-actions,
+        body.focus-mode .options-row,
+        body.focus-mode .kbd-hint,
+        body.focus-mode .header-row {
+            display: none !important;
+        }
+        body.focus-mode .container {
+            max-width: 640px;
+            box-shadow: none;
+            border: none;
+            background: transparent;
+            padding: 60px 20px;
+        }
+        body.focus-mode .ring-wrap { width: 380px; height: 380px; margin: 10px auto; }
+        body.focus-mode .timer-display { font-size: 4.6rem; }
+        body.focus-mode .controls-grid { max-width: 320px; margin: 0 auto 10px; }
+        body.focus-mode .adjust-row { margin-top: 4px; }
+        .focus-exit-hint {
+            display: none;
+            margin-top: 22px;
+            font-size: 0.78rem;
+            color: var(--text-faint);
+        }
+        body.focus-mode .focus-exit-hint { display: block; }
+
+        /* ---------- CONTENT / SEO ---------- */
         .content-section {
-            max-width: 680px;
+            max-width: 620px;
             width: 100%;
-            margin-top: 30px;
-            line-height: 1.6;
+            margin-top: 34px;
+            line-height: 1.65;
             color: var(--text-muted);
             font-size: 0.9rem;
-            border-top: 1px solid var(--border-color);
+            border-top: 1px solid var(--border);
             padding-top: 30px;
         }
-
         .content-section h2 {
-            color: var(--text-main);
-            font-size: 1.1rem;
+            font-family: 'Space Grotesk', sans-serif;
+            color: var(--text);
+            font-size: 1.05rem;
             margin-bottom: 10px;
-            margin-top: 20px;
+            margin-top: 22px;
         }
-
         .content-section p { margin-bottom: 12px; }
         .content-section ul { margin-left: 20px; margin-bottom: 15px; }
+        .content-section code {
+            background: var(--card);
+            border: 1px solid var(--border);
+            padding: 1px 6px;
+            border-radius: 5px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82em;
+        }
+
+        @media (max-width: 480px) {
+            .container { padding: 26px 20px 22px; }
+            .ring-wrap { width: 220px; height: 220px; }
+            .timer-display { font-size: 2.5rem; }
+            body.focus-mode .ring-wrap { width: 280px; height: 280px; }
+            body.focus-mode .timer-display { font-size: 3.4rem; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+        }
     </style>
 
     <canvas id="favicon-canvas" width="64" height="64" style="display:none;"></canvas>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, onValue, off } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, set, update, remove, onValue, onDisconnect, off } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDvxKWshIHghAk2CQG7cbE3HrRbM_UySaQ",
@@ -351,102 +622,161 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
+        const clientId = (crypto.randomUUID ? crypto.randomUUID() : `c-${Date.now()}-${Math.random()}`);
 
         let currentRoomRef = null;
+        let presenceRef = null;
         let intervalId = null;
         let targetTimestamp = null;
         let totalDurationSeconds = 0;
         let hasSoundPlayed = false;
         let currentRoomName = "";
+        let isRunning = false;
+        let isPaused = false;
+        let remainingSecondsPaused = null;
+        let wakeLock = null;
+        let soundEnabled = true;
+        let soundStyle = "soft";
+        let notifAsked = false;
 
-        const lobbyScreen = document.getElementById('lobby-screen');
-        const timerScreen = document.getElementById('timer-screen');
-        const initialMenu = document.getElementById('initial-menu');
-        const roomForm = document.getElementById('room-form');
-        const formTitle = document.getElementById('form-title');
-        const roomInput = document.getElementById('room-input');
-        const formSubmitBtn = document.getElementById('form-submit-btn');
+        const RING_RADIUS = 118;
+        const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
-        const display = document.getElementById('display');
-        const minutesInput = document.getElementById('minutes-input');
-        const statusDot = document.getElementById('status-dot');
-        const statusText = document.getElementById('status-text');
-        const progressBar = document.getElementById('progress-bar');
-        const activeRoomNameSpan = document.getElementById('active-room-name');
+        const el = (id) => document.getElementById(id);
 
-        const canvas = document.getElementById('favicon-canvas');
+        const lobbyScreen = el('lobby-screen');
+        const timerScreen = el('timer-screen');
+        const initialMenu = el('initial-menu');
+        const roomForm = el('room-form');
+        const formTitle = el('form-title');
+        const roomInput = el('room-input');
+        const formSubmitBtn = el('form-submit-btn');
+
+        const display = el('display');
+        const minutesLabel = el('minutes-label');
+        const syncDot = el('sync-dot');
+        const statusText = el('status-text');
+        const ringProgress = el('ring-progress');
+        const activeRoomNameSpan = el('active-room-name');
+        const participantsCount = el('participants-count');
+        const startBtn = el('start-btn');
+        const pauseLiveBtn = el('pause-live-btn');
+        const resetBtn = el('reset-btn');
+        const soundSelect = el('sound-select');
+        const muteBtn = el('mute-toggle');
+        const qrPopover = el('qr-popover');
+        const qrImg = el('qr-img');
+
+        let pendingMinutes = 20;
+
+        const canvas = el('favicon-canvas');
         const ctx = canvas.getContext('2d');
-        const faviconLink = document.getElementById('favicon');
+        const faviconLink = el('favicon');
 
-        function refreshAds() {
-            if (!document.hidden && window.adsbygoogle) {
-                try { (adsbygoogle = window.adsbygoogle || []).push({}); } catch (e) {}
+        // ---------- RING SETUP ----------
+        function buildRingStatics() {
+            const track = el('ring-track');
+            const ticksGroup = el('ring-ticks');
+            track.setAttribute('r', RING_RADIUS);
+            track.setAttribute('cx', 130);
+            track.setAttribute('cy', 130);
+            ringProgress.setAttribute('r', RING_RADIUS);
+            ringProgress.setAttribute('cx', 130);
+            ringProgress.setAttribute('cy', 130);
+            ringProgress.style.strokeDasharray = `${RING_CIRCUMFERENCE}`;
+            ringProgress.style.strokeDashoffset = `${RING_CIRCUMFERENCE}`;
+
+            let ticks = '';
+            for (let i = 0; i < 60; i++) {
+                const angle = (i / 60) * 2 * Math.PI;
+                const isMajor = i % 5 === 0;
+                const outer = RING_RADIUS + 14;
+                const inner = isMajor ? RING_RADIUS + 6 : RING_RADIUS + 9;
+                const x1 = 130 + inner * Math.cos(angle);
+                const y1 = 130 + inner * Math.sin(angle);
+                const x2 = 130 + outer * Math.cos(angle);
+                const y2 = 130 + outer * Math.sin(angle);
+                ticks += `<line class="tick ${isMajor ? 'major' : ''}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
             }
+            ticksGroup.innerHTML = ticks;
         }
-        setInterval(refreshAds, 60000);
+        buildRingStatics();
+
+        function setRingProgress(percent) {
+            const offset = RING_CIRCUMFERENCE * (1 - percent / 100);
+            ringProgress.style.strokeDashoffset = `${offset}`;
+            ringProgress.classList.toggle('danger-state', percent >= 90);
+        }
+
+        // ---------- SOUND ----------
+        function tone(ctxA, freq, startTime, duration, type = 'sine', peak = 0.28) {
+            const osc = ctxA.createOscillator();
+            const gain = ctxA.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, startTime);
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(peak, startTime + 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+            osc.connect(gain);
+            gain.connect(ctxA.destination);
+            osc.start(startTime);
+            osc.stop(startTime + duration);
+        }
 
         function playAlarmSound() {
+            if (!soundEnabled) return;
             try {
                 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                function playTone(freq, startTime, duration) {
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(freq, startTime);
-                    gain.gain.setValueAtTime(0, startTime);
-                    gain.gain.linearRampToValueAtTime(0.3, startTime + 0.05);
-                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-                    osc.start(startTime);
-                    osc.stop(startTime + duration);
-                }
                 const now = audioCtx.currentTime;
-                playTone(587.33, now, 0.25);
-                playTone(880.00, now + 0.18, 0.4);
+                if (soundStyle === 'soft') {
+                    tone(audioCtx, 587.33, now, 0.28);
+                    tone(audioCtx, 880.00, now + 0.18, 0.42);
+                } else if (soundStyle === 'classic') {
+                    [0, 0.3, 0.6, 1.0].forEach((t, i) => tone(audioCtx, i % 2 === 0 ? 784 : 659, now + t, 0.32, 'triangle', 0.3));
+                } else if (soundStyle === 'alert') {
+                    [0, 0.22, 0.44].forEach((t) => tone(audioCtx, 1046.5, now + t, 0.18, 'square', 0.18));
+                }
             } catch (e) {}
         }
 
-        function updateFaviconProgress(percent) {
+        // ---------- FAVICON ----------
+        function updateFaviconProgress(percent, danger) {
             ctx.clearRect(0, 0, 64, 64);
             ctx.beginPath();
             ctx.arc(32, 32, 26, 0, 2 * Math.PI);
-            ctx.fillStyle = '#27272a';
+            ctx.fillStyle = '#232a38';
             ctx.fill();
-
             const startAngle = -0.5 * Math.PI;
             const endAngle = startAngle + (2 * Math.PI * (percent / 100));
-
             ctx.beginPath();
             ctx.moveTo(32, 32);
             ctx.arc(32, 32, 26, startAngle, endAngle);
             ctx.closePath();
-            ctx.fillStyle = percent >= 100 ? '#ef4444' : '#10b981';
+            ctx.fillStyle = danger ? '#ef4565' : '#e8a33d';
             ctx.fill();
-
             faviconLink.href = canvas.toDataURL('image/png');
         }
 
-        // LÓGICA DE NAVEGAÇÃO DO LOBBY
-        document.getElementById('btn-create-room').addEventListener('click', () => {
+        // ---------- LOBBY NAV ----------
+        el('btn-create-room').addEventListener('click', () => {
             initialMenu.style.display = 'none';
             roomForm.style.display = 'flex';
-            formTitle.innerText = "Criar Nova Sala";
-            formSubmitBtn.innerText = "Criar e Entrar";
+            formTitle.innerText = "Nome da nova sala";
+            formSubmitBtn.innerText = "Criar e entrar";
             roomInput.value = "";
             roomInput.focus();
         });
 
-        document.getElementById('btn-join-room').addEventListener('click', () => {
+        el('btn-join-room').addEventListener('click', () => {
             initialMenu.style.display = 'none';
             roomForm.style.display = 'flex';
-            formTitle.innerText = "Entrar em uma Sala";
+            formTitle.innerText = "Nome da sala existente";
             formSubmitBtn.innerText = "Entrar";
             roomInput.value = "";
             roomInput.focus();
         });
 
-        document.getElementById('back-to-menu').addEventListener('click', () => {
+        el('back-to-menu').addEventListener('click', () => {
             roomForm.style.display = 'none';
             initialMenu.style.display = 'flex';
         });
@@ -456,49 +786,113 @@
             if (roomName) {
                 connectToRoom(roomName);
             } else {
-                alert("Por favor, digite um nome válido para a sala.");
+                alert("Digite um nome válido para a sala (letras, números, - ou _).");
             }
         });
 
-        roomInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') formSubmitBtn.click();
-        });
+        roomInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') formSubmitBtn.click(); });
 
-        // CONECTA À SALA NO FIREBASE E EXIBE A TELA DO CRONÔMETRO
+        // ---------- BUTTON STATE ----------
+        function setControlsState(state) {
+            if (state === 'running') {
+                startBtn.style.display = 'none';
+                pauseLiveBtn.style.display = '';
+                resetBtn.style.display = '';
+            } else if (state === 'paused') {
+                startBtn.style.display = '';
+                startBtn.innerText = 'Retomar';
+                pauseLiveBtn.style.display = 'none';
+                resetBtn.style.display = '';
+            } else {
+                startBtn.style.display = '';
+                startBtn.innerText = 'Iniciar';
+                pauseLiveBtn.style.display = 'none';
+                resetBtn.style.display = '';
+            }
+        }
+
+        // ---------- ROOM CONNECT ----------
         function connectToRoom(roomName) {
             if (currentRoomRef) off(currentRoomRef);
+            if (presenceRef) { remove(presenceRef).catch(() => {}); }
 
             currentRoomName = roomName;
             activeRoomNameSpan.innerText = `#${roomName}`;
             window.location.hash = roomName;
 
-            // Transição de Telas
             lobbyScreen.style.display = 'none';
             timerScreen.style.display = 'block';
 
             currentRoomRef = ref(db, `rooms/${roomName}`);
+            presenceRef = ref(db, `rooms/${roomName}/participants/${clientId}`);
+            set(presenceRef, { joinedAt: Date.now() });
+            onDisconnect(presenceRef).remove();
+
+            onValue(ref(db, `rooms/${roomName}/participants`), (snap) => {
+                const val = snap.val() || {};
+                const count = Object.keys(val).length || 1;
+                participantsCount.innerText = count === 1 ? '1 pessoa' : `${count} pessoas`;
+            });
 
             onValue(currentRoomRef, (snapshot) => {
                 const data = snapshot.val();
 
                 if (data && data.target) {
+                    // RODANDO
                     targetTimestamp = data.target;
-                    totalDurationSeconds = data.totalSeconds || (parseInt(minutesInput.value) * 60);
+                    totalDurationSeconds = data.totalSeconds || (pendingMinutes * 60);
                     hasSoundPlayed = false;
-                    
-                    statusDot.className = "status-dot active";
-                    statusText.innerText = "Em andamento";
+                    isRunning = true;
+                    isPaused = false;
+                    remainingSecondsPaused = null;
+
+                    syncDot.classList.add('online');
+                    statusText.innerText = "Sincronizado — em andamento";
+                    setControlsState('running');
+                    requestWakeLock();
                     startCountdown();
-                } else {
+                } else if (data && data.paused) {
+                    // PAUSADO
                     clearInterval(intervalId);
-                    const mins = data && data.lastMinutes ? data.lastMinutes : parseInt(minutesInput.value) || 20;
-                    minutesInput.value = mins;
+                    isRunning = false;
+                    isPaused = true;
+                    releaseWakeLock();
+                    totalDurationSeconds = data.totalSeconds || totalDurationSeconds;
+                    remainingSecondsPaused = data.remainingSeconds != null ? data.remainingSeconds : 0;
+                    pendingMinutes = data.lastMinutes || pendingMinutes;
+                    minutesLabel.innerText = `${pendingMinutes} min`;
+                    display.classList.remove('pulsing');
+                    updateDisplay(remainingSecondsPaused);
+                    document.title = `#${currentRoomName} — pausado`;
+
+                    syncDot.classList.remove('online');
+                    statusText.innerText = "Pausado";
+                    setControlsState('paused');
+
+                    if (totalDurationSeconds > 0) {
+                        const elapsed = totalDurationSeconds - remainingSecondsPaused;
+                        const percent = Math.min(100, Math.max(0, (elapsed / totalDurationSeconds) * 100));
+                        setRingProgress(percent);
+                        updateFaviconProgress(percent, percent >= 90);
+                    }
+                } else {
+                    // OCIOSO
+                    clearInterval(intervalId);
+                    isRunning = false;
+                    isPaused = false;
+                    remainingSecondsPaused = null;
+                    releaseWakeLock();
+                    const mins = data && data.lastMinutes ? data.lastMinutes : pendingMinutes;
+                    pendingMinutes = mins;
+                    minutesLabel.innerText = `${mins} min`;
+                    updateActivePreset(mins);
                     updateDisplay(mins * 60);
-                    
-                    statusDot.className = "status-dot";
-                    statusText.innerText = "Desativado";
-                    progressBar.style.width = "0%";
-                    updateFaviconProgress(0);
+
+                    syncDot.classList.remove('online');
+                    statusText.innerText = "Pronto — aguardando início";
+                    setControlsState('idle');
+                    setRingProgress(0);
+                    updateFaviconProgress(0, false);
                 }
             });
         }
@@ -512,27 +906,29 @@
                 if (difference <= 0) {
                     clearInterval(intervalId);
                     updateDisplay(0);
-                    statusDot.className = "status-dot ended";
+                    display.classList.remove('pulsing');
                     statusText.innerText = "Tempo esgotado";
-                    progressBar.style.width = "100%";
-                    updateFaviconProgress(100);
+                    setRingProgress(100);
+                    updateFaviconProgress(100, true);
+                    releaseWakeLock();
 
                     if (!hasSoundPlayed) {
                         playAlarmSound();
                         hasSoundPlayed = true;
+                        maybeNotify();
                     }
                     return;
                 }
 
                 const secondsLeft = Math.floor(difference / 1000);
                 updateDisplay(secondsLeft);
+                display.classList.toggle('pulsing', secondsLeft <= 10);
 
                 if (totalDurationSeconds > 0) {
                     const elapsed = totalDurationSeconds - secondsLeft;
                     const percent = Math.min(100, Math.max(0, (elapsed / totalDurationSeconds) * 100));
-                    
-                    progressBar.style.width = `${percent}%`;
-                    updateFaviconProgress(percent);
+                    setRingProgress(percent);
+                    updateFaviconProgress(percent, percent >= 90);
                 }
             }, 1000);
         }
@@ -541,54 +937,176 @@
             const m = Math.floor(seconds / 60).toString().padStart(2, '0');
             const s = (seconds % 60).toString().padStart(2, '0');
             const timeString = `${m}:${s}`;
-            
             display.innerText = timeString;
-            document.title = `(${timeString}) #${currentRoomName}`;
+            document.title = `(${timeString}) #${currentRoomName} — Cronoma`;
         }
 
-        document.getElementById('start-btn').addEventListener('click', () => {
-            const mins = parseInt(minutesInput.value) || 20;
-            const durationMs = mins * 60 * 1000;
-            const newTarget = Date.now() + durationMs;
-            
-            set(currentRoomRef, { 
-                target: newTarget,
-                totalSeconds: mins * 60,
-                lastMinutes: mins
+        // ---------- NOTIFICATIONS ----------
+        function maybeNotify() {
+            if (!document.hidden) return;
+            if (Notification && Notification.permission === 'granted') {
+                try {
+                    new Notification(`Tempo esgotado — #${currentRoomName}`, {
+                        body: 'O cronômetro da sua sala chegou a zero.',
+                        silent: false
+                    });
+                } catch (e) {}
+            }
+        }
+
+        function askNotifPermission() {
+            if (notifAsked) return;
+            notifAsked = true;
+            if (window.Notification && Notification.permission === 'default') {
+                Notification.requestPermission().catch(() => {});
+            }
+        }
+
+        // ---------- WAKE LOCK ----------
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+            } catch (e) {}
+        }
+        function releaseWakeLock() {
+            if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+        }
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && isRunning && !wakeLock) requestWakeLock();
+        });
+
+        // ---------- PRESETS & ADJUST ----------
+        const presetValues = [5, 10, 15, 25, 45, 60];
+        function updateActivePreset(mins) {
+            document.querySelectorAll('.preset-chip').forEach(chip => {
+                chip.classList.toggle('active', parseInt(chip.dataset.mins, 10) === mins);
+            });
+        }
+
+        document.querySelectorAll('.preset-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                const mins = parseInt(chip.dataset.mins, 10);
+                pendingMinutes = mins;
+                minutesLabel.innerText = `${mins} min`;
+                updateActivePreset(mins);
+                if (!isRunning) updateDisplay(mins * 60);
             });
         });
 
-        document.getElementById('pause-btn').addEventListener('click', () => {
-            const mins = parseInt(minutesInput.value) || 20;
-            set(currentRoomRef, { 
-                target: null, 
-                totalSeconds: 0,
-                lastMinutes: mins 
-            });
+        function adjustTime(deltaMinutes) {
+            if (isRunning) {
+                const newTotal = Math.max(60, totalDurationSeconds + deltaMinutes * 60);
+                const newTarget = targetTimestamp + deltaMinutes * 60000;
+                update(currentRoomRef, { target: newTarget, totalSeconds: newTotal });
+            } else if (isPaused) {
+                const newRemaining = Math.max(0, (remainingSecondsPaused || 0) + deltaMinutes * 60);
+                const newTotal = Math.max(60, totalDurationSeconds + deltaMinutes * 60);
+                update(currentRoomRef, { remainingSeconds: newRemaining, totalSeconds: newTotal });
+            } else {
+                pendingMinutes = Math.max(1, pendingMinutes + deltaMinutes);
+                minutesLabel.innerText = `${pendingMinutes} min`;
+                updateActivePreset(pendingMinutes);
+                updateDisplay(pendingMinutes * 60);
+            }
+        }
+        document.querySelectorAll('[data-adjust]').forEach(btn => {
+            btn.addEventListener('click', () => adjustTime(parseInt(btn.dataset.adjust, 10)));
         });
 
-        document.getElementById('share-btn').addEventListener('click', () => {
+        // ---------- MAIN CONTROLS ----------
+        startBtn.addEventListener('click', () => {
+            askNotifPermission();
+            const mins = pendingMinutes || 20;
+            if (isPaused && remainingSecondsPaused != null) {
+                // Retomar de onde parou
+                const newTarget = Date.now() + remainingSecondsPaused * 1000;
+                set(currentRoomRef, { target: newTarget, totalSeconds: totalDurationSeconds, lastMinutes: mins, paused: false, remainingSeconds: null });
+            } else {
+                // Início novo
+                const durationMs = mins * 60 * 1000;
+                const newTarget = Date.now() + durationMs;
+                set(currentRoomRef, { target: newTarget, totalSeconds: mins * 60, lastMinutes: mins, paused: false, remainingSeconds: null });
+            }
+        });
+
+        pauseLiveBtn.addEventListener('click', () => {
+            const remaining = Math.max(0, Math.round((targetTimestamp - Date.now()) / 1000));
+            set(currentRoomRef, { target: null, totalSeconds: totalDurationSeconds, lastMinutes: pendingMinutes, paused: true, remainingSeconds: remaining });
+        });
+
+        resetBtn.addEventListener('click', () => {
+            const mins = pendingMinutes || 20;
+            set(currentRoomRef, { target: null, totalSeconds: 0, lastMinutes: mins, paused: false, remainingSeconds: null });
+        });
+
+        el('share-btn').addEventListener('click', () => {
             const fullUrl = window.location.href;
-            navigator.clipboard.writeText(fullUrl);
-            alert(`Link da sala #${currentRoomName} copiado!`);
+            navigator.clipboard.writeText(fullUrl).then(() => {
+                el('share-btn').innerText = "Link copiado ✓";
+                setTimeout(() => { el('share-btn').innerText = "Copiar link"; }, 1600);
+            }).catch(() => alert(fullUrl));
         });
 
-        document.getElementById('exit-room-btn').addEventListener('click', () => {
+        el('qr-btn').addEventListener('click', () => {
+            const visible = qrPopover.style.display === 'flex';
+            if (visible) { qrPopover.style.display = 'none'; return; }
+            const url = encodeURIComponent(window.location.href);
+            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${url}`;
+            qrPopover.style.display = 'flex';
+        });
+
+        el('exit-room-btn').addEventListener('click', () => {
             if (currentRoomRef) off(currentRoomRef);
+            if (presenceRef) remove(presenceRef).catch(() => {});
             clearInterval(intervalId);
+            releaseWakeLock();
             window.location.hash = "";
             timerScreen.style.display = 'none';
             roomForm.style.display = 'none';
             initialMenu.style.display = 'flex';
             lobbyScreen.style.display = 'block';
-            document.title = "Timer de Equipe - Salas Sincronizadas";
+            document.title = "Cronoma — Timer de Equipe Sincronizado em Tempo Real";
         });
 
-        // VERIFICA SE O USUÁRIO ENTROU DIRETO VIA LINK (#)
+        // ---------- OPTIONS: theme / sound / focus ----------
+        el('theme-toggle').addEventListener('click', () => {
+            const htmlEl = document.documentElement;
+            const next = htmlEl.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+            htmlEl.setAttribute('data-theme', next);
+            el('theme-toggle').innerText = next === 'dark' ? '☾' : '☀';
+        });
+
+        soundSelect.addEventListener('change', (e) => { soundStyle = e.target.value; });
+
+        muteBtn.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            muteBtn.classList.toggle('muted', !soundEnabled);
+            muteBtn.innerText = soundEnabled ? '🔊' : '🔇';
+        });
+
+        function toggleFocusMode(force) {
+            const active = force !== undefined ? force : !document.body.classList.contains('focus-mode');
+            document.body.classList.toggle('focus-mode', active);
+            el('focus-toggle').innerText = active ? '⤡' : '⤢';
+        }
+        el('focus-toggle').addEventListener('click', () => toggleFocusMode());
+
+        // ---------- KEYBOARD SHORTCUTS ----------
+        document.addEventListener('keydown', (e) => {
+            if (timerScreen.style.display !== 'block') return;
+            const tag = (e.target.tagName || '').toLowerCase();
+            if (tag === 'input' || tag === 'select') return;
+
+            if (e.code === 'Space') { e.preventDefault(); isRunning ? pauseLiveBtn.click() : startBtn.click(); }
+            else if (e.key.toLowerCase() === 'r') { resetBtn.click(); }
+            else if (e.key.toLowerCase() === 'f') { toggleFocusMode(); }
+            else if (e.key === 'Escape') { toggleFocusMode(false); qrPopover.style.display = 'none'; }
+        });
+
+        // ---------- INITIAL HASH ----------
         function checkInitialHash() {
             let hash = window.location.hash.replace('#', '').trim().toLowerCase();
             hash = hash.replace(/[^a-z0-9_-]/g, '');
-            
             if (hash) {
                 connectToRoom(hash);
             } else {
@@ -596,88 +1114,138 @@
                 timerScreen.style.display = 'none';
             }
         }
-
         window.addEventListener('hashchange', checkInitialHash);
         checkInitialHash();
     </script>
 </head>
 <body>
 
-    <!-- <div class="ad-banner-wrapper">
-        <span>[ Espaço Reservado para Anúncio Superior ]</span>
-    </div> -->
+    <div class="topbar">
+        <div class="brand"><span class="dot"></span> Cronoma</div>
+        <div class="topbar-actions">
+            <button class="icon-btn" id="theme-toggle" title="Alternar tema">☾</button>
+        </div>
+    </div>
 
-    <!-- TELA 1: LOBBY DE ENTRADA -->
+    <div class="ad-banner-wrapper">
+        <span>[ Espaço reservado para anúncio ]</span>
+    </div>
+
+    <!-- TELA 1: LOBBY -->
     <div class="container" id="lobby-screen">
-        <h1>⏱️ Timer de Equipe</h1>
-        <p>Sincronize o tempo da sua equipe em tempo real.</p>
+        <div class="eyebrow">Salas em tempo real</div>
+        <h1>Cronômetro de equipe, sincronizado no segundo</h1>
+        <p>Crie uma sala, compartilhe o link e todo mundo vê o mesmo tempo — perfeito para dailies, dinâmicas em grupo e sessões de foco.</p>
 
-        <!-- Menu Inicial -->
         <div class="lobby-buttons" id="initial-menu">
-            <button class="btn" id="btn-create-room">Criar Nova Sala</button>
-            <button class="btn btn-lobby-secondary" id="btn-join-room">Entrar em uma Sala</button>
+            <button class="btn" id="btn-create-room">Criar nova sala</button>
+            <button class="btn btn-lobby-secondary" id="btn-join-room">Entrar em uma sala</button>
         </div>
 
-        <!-- Formulário Dinâmico -->
         <div class="room-form" id="room-form">
-            <label id="form-title">Nome da Sala</label>
+            <label id="form-title">Nome da sala</label>
             <div class="room-input-group">
                 <span>#</span>
-                <input type="text" id="room-input" placeholder="ex: teste" maxlength="30">
+                <input type="text" id="room-input" placeholder="ex: daily-time" maxlength="30">
             </div>
             <button class="btn" id="form-submit-btn">Entrar</button>
             <span class="back-link" id="back-to-menu">← Voltar ao menu</span>
         </div>
     </div>
 
-    <!-- TELA 2: CRONÔMETRO (Exibido após entrar na sala) -->
+    <!-- TELA 2: CRONÔMETRO -->
     <div class="container" id="timer-screen">
-        <div class="progress-bar-container">
-            <div class="progress-bar" id="progress-bar"></div>
-        </div>
-
         <div class="header">
-            <h1>⏱️ Timer de Equipe</h1>
-            <div class="room-badge">
-                <span id="active-room-name">#geral</span>
+            <div class="header-row">
+                <div class="room-badge">
+                    <span class="sync-pulse" id="sync-dot"></span>
+                    <span id="active-room-name">#geral</span>
+                </div>
+                <div class="participants-badge">👥 <span id="participants-count">1 pessoa</span></div>
+                <button class="icon-btn" id="focus-toggle" title="Modo foco (F)">⤢</button>
             </div>
-            <br>
-            <div class="status-badge">
-                <span class="status-dot" id="status-dot"></span>
-                <span id="status-text">Desativado</span>
+            <span class="status-text" id="status-text">Pronto — aguardando início</span>
+        </div>
+
+        <div class="ring-wrap">
+            <svg viewBox="0 0 260 260">
+                <g id="ring-ticks"></g>
+                <circle class="ring-track" id="ring-track"></circle>
+                <circle class="ring-progress" id="ring-progress"></circle>
+            </svg>
+            <div class="ring-center">
+                <div class="timer-display" id="display">20:00</div>
+                <div class="timer-sublabel" id="minutes-label">20 min</div>
             </div>
         </div>
 
-        <div class="timer-display" id="display">20:00</div>
+        <div class="presets-row">
+            <button class="preset-chip" data-mins="5">5m</button>
+            <button class="preset-chip" data-mins="10">10m</button>
+            <button class="preset-chip" data-mins="15">15m</button>
+            <button class="preset-chip active" data-mins="25">25m</button>
+            <button class="preset-chip" data-mins="45">45m</button>
+            <button class="preset-chip" data-mins="60">60m</button>
+        </div>
 
-        <div class="input-group">
-            <input type="number" id="minutes-input" value="20" min="1" max="999">
-            <span>minutos</span>
+        <div class="adjust-row">
+            <button class="adjust-btn" data-adjust="-5">-5</button>
+            <button class="adjust-btn" data-adjust="-1">-1</button>
+            <span class="minutes-static">ajustar</span>
+            <button class="adjust-btn" data-adjust="1">+1</button>
+            <button class="adjust-btn" data-adjust="5">+5</button>
         </div>
 
         <div class="controls-grid">
             <button class="btn" id="start-btn">Iniciar</button>
-            <button class="btn btn-pause" id="pause-btn">Zerar</button>
+            <button class="btn btn-pause-live" id="pause-live-btn" style="display:none;">Pausar</button>
+            <button class="btn btn-pause" id="reset-btn">Zerar</button>
         </div>
 
-        <button class="btn-secondary-full" id="share-btn">Copiar Link da Sala</button>
-        <button class="btn-secondary-full" id="exit-room-btn">Sair da Sala</button>
+        <div class="secondary-actions">
+            <button class="btn-secondary-full" id="share-btn">Copiar link</button>
+            <button class="btn-secondary-full" id="qr-btn">QR code</button>
+        </div>
+        <div class="qr-popover" id="qr-popover">
+            <img id="qr-img" alt="QR code da sala">
+        </div>
+        <button class="btn-secondary-full" id="exit-room-btn" style="width:100%; margin-top:8px;">Sair da sala</button>
+
+        <div class="options-row">
+            <select class="sound-select" id="sound-select">
+                <option value="soft">Som suave</option>
+                <option value="classic">Som clássico</option>
+                <option value="alert">Som de alerta</option>
+            </select>
+            <button class="mute-toggle" id="mute-toggle" title="Silenciar">🔊</button>
+        </div>
+
+        <div class="kbd-hint">
+            <span><kbd>espaço</kbd> iniciar/pausar</span>
+            <span><kbd>F</kbd> modo foco</span>
+            <span><kbd>Esc</kbd> sair do foco</span>
+        </div>
+
+        <div class="focus-exit-hint">Pressione <kbd>Esc</kbd> ou <kbd>F</kbd> para sair do modo foco</div>
     </div>
 
-    <!-- <div class="ad-banner-wrapper">
-        <span>[ Espaço Reservado para Anúncio Inferior ]</span>
-    </div> -->
-
     <article class="content-section">
-        <h2>Como funcionam as Salas de Equipe?</h2>
-        <p>O <strong>Timer de Equipe</strong> permite criar salas personalizadas para alinhar reuniões diárias, sessões de estudo e trabalho focado em tempo real.</p>
-        
-        <h2>Recursos Principais</h2>
+        <h2>Como funcionam as salas de equipe</h2>
+        <p>O <strong>Cronoma</strong> cria uma sala isolada para cada nome que você escolher — ex: <code>#daily-time</code>. Qualquer pessoa que abra o mesmo link entra na sala e enxerga exatamente o mesmo cronômetro, atualizado em tempo real via Firebase Realtime Database.</p>
+
+        <h2>O que há de novo</h2>
         <ul>
-            <li><strong>Salas Isoladas:</strong> Crie um canal com qualquer nome (ex: <code>#teste</code>). Quem acessar com esse nome se conecta ao mesmo relógio.</li>
-            <li><strong>Sincronização em Nuvem:</strong> Pressionar iniciar ou zerar sincroniza a contagem instantaneamente para todos os membros na sala.</li>
-            <li><strong>Notificação Sonora e Aba Dinâmica:</strong> O ícone da barra de guias avança visualmente e um som suave toca ao zerar o tempo.</li>
+            <li><strong>Presença ao vivo:</strong> veja quantas pessoas estão na sala agora, atualizado automaticamente ao entrar e sair.</li>
+            <li><strong>Ajuste instantâneo:</strong> adicione ou remova minutos com o cronômetro já rodando — todos na sala veem a mudança na hora.</li>
+            <li><strong>Modo foco:</strong> esconde toda a interface e amplia o relógio para apresentações e telões.</li>
+            <li><strong>Notificações do navegador:</strong> receba um aviso mesmo com a aba em segundo plano quando o tempo acabar.</li>
+            <li><strong>Tela sempre ativa:</strong> o dispositivo não apaga a tela enquanto a contagem está rodando.</li>
+            <li><strong>Três sons de alarme</strong> e opção de silenciar, além de aba e favicon dinâmicos mostrando o progresso.</li>
+            <li><strong>QR code</strong> para convidar rapidamente quem está no mesmo ambiente físico.</li>
         </ul>
+
+        <h2>Atalhos de teclado</h2>
+        <p>Use <code>espaço</code> para iniciar ou zerar, <code>F</code> para alternar o modo foco e <code>Esc</code> para sair dele — ideal para quem está conduzindo a sessão sem tirar as mãos do teclado.</p>
     </article>
 
 </body>
